@@ -34,9 +34,9 @@ public final class AWSSecretsManagerH2Driver extends AWSSecretsManagerDriver {
     /**
      * The H2 error code for when a user logs in using an invalid password.
      *
-     * See <a https://www.h2database.com/javadoc/org/h2/api/ErrorCode.html ">PostgreSQL documentation</a>.
+     * See <a href="https://www.h2database.com/javadoc/org/h2/api/ErrorCode.html">PostgreSQL documentation</a>.
      */
-    public static final String 	WRONG_USER_OR_PASSWORD = "28000";
+    public static final String WRONG_USER_OR_PASSWORD = "28000";
     
     /**
      * Set to h2.
