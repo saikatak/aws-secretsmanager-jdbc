@@ -12,53 +12,45 @@
  */
 package com.amazonaws.secretsmanager.sql;
 
-import java.sql.SQLException;
-
 import com.amazonaws.secretsmanager.caching.SecretCache;
 import com.amazonaws.secretsmanager.caching.SecretCacheConfiguration;
+import com.amazonaws.secretsmanager.util.SQLExceptionUtils;
 import com.amazonaws.services.secretsmanager.AWSSecretsManager;
 import com.amazonaws.services.secretsmanager.AWSSecretsManagerClientBuilder;
 import com.amazonaws.util.StringUtils;
 
 /**
  * <p>
- * Provides support for accessing PostgreSQL databases using credentials stored within AWS Secrets Manager.
+ * Provides support for accessing Db2 databases using credentials stored within AWS Secrets Manager.
  * </p>
  *
  * <p>
- * Configuration properties are specified using the "postgresql" subprefix (e.g drivers.postgresql.realDriverClass).
+ * Configuration properties are specified using the "db2" subprefix (e.g drivers.mysql.realDriverClass).
  * </p>
  */
-public final class AWSSecretsManagerPostgreSQLDriver extends AWSSecretsManagerDriver {
+public final class AWSSecretsManagerDb2Driver extends AWSSecretsManagerDriver {
 
     /**
-     * The PostgreSQL error code for when a user logs in using an invalid password.
+     * The Db2 error code for when a user logs in using an invalid password.
      *
-     * See <a href="https://www.postgresql.org/docs/9.6/static/errcodes-appendix.html">PostgreSQL documentation</a>.
+     * See <a href="https://www.ibm.com/docs/en/db2-for-zos/11?topic=codes-sql-error">Db2 error codes</a>.
      */
-    public static final String ACCESS_DENIED_FOR_USER_USING_PASSWORD_TO_DATABASE = "28P01";
+    public static final int ACCESS_DENIED_FOR_USER_USING_PASSWORD_TO_DATABASE = -1403;
 
     /**
-     * The error code returned by RDS Proxy when the secret is rotated in alternating user mode.
-     *
-     * See <a href="https://www.postgresql.org/docs/current/errcodes-appendix.html">PosgreSQL documentation</a>.
+     * Set to Db2.
      */
-    public static final String ACCESS_DENIED_FOR_INVALID_AUTHORIZATION_SPECIFICATION = "28000";
-
-    /**
-     * Set to postgresql.
-     */
-    public static final String SUBPREFIX = "postgresql";
+    public static final String SUBPREFIX = "db2";
 
     static {
-        AWSSecretsManagerDriver.register(new AWSSecretsManagerPostgreSQLDriver());
+        AWSSecretsManagerDriver.register(new AWSSecretsManagerDb2Driver());
     }
 
     /**
      * Constructs the driver setting the properties from the properties file using system properties as defaults.
      * Instantiates the secret cache with default options.
      */
-    public AWSSecretsManagerPostgreSQLDriver() {
+    public AWSSecretsManagerDb2Driver() {
         super();
     }
 
@@ -68,7 +60,7 @@ public final class AWSSecretsManagerPostgreSQLDriver extends AWSSecretsManagerDr
      *
      * @param cache                                             Secret cache to use to retrieve secrets
      */
-    public AWSSecretsManagerPostgreSQLDriver(SecretCache cache) {
+    public AWSSecretsManagerDb2Driver(SecretCache cache) {
         super(cache);
     }
 
@@ -78,7 +70,7 @@ public final class AWSSecretsManagerPostgreSQLDriver extends AWSSecretsManagerDr
      *
      * @param builder                                           Builder used to instantiate cache
      */
-    public AWSSecretsManagerPostgreSQLDriver(AWSSecretsManagerClientBuilder builder) {
+    public AWSSecretsManagerDb2Driver(AWSSecretsManagerClientBuilder builder) {
         super(builder);
     }
 
@@ -88,7 +80,7 @@ public final class AWSSecretsManagerPostgreSQLDriver extends AWSSecretsManagerDr
      *
      * @param client                                            AWS Secrets Manager client to instantiate cache
      */
-    public AWSSecretsManagerPostgreSQLDriver(AWSSecretsManager client) {
+    public AWSSecretsManagerDb2Driver(AWSSecretsManager client) {
         super(client);
     }
 
@@ -98,7 +90,7 @@ public final class AWSSecretsManagerPostgreSQLDriver extends AWSSecretsManagerDr
      *
      * @param cacheConfig                                       Cache configuration to instantiate cache
      */
-    public AWSSecretsManagerPostgreSQLDriver(SecretCacheConfiguration cacheConfig) {
+    public AWSSecretsManagerDb2Driver(SecretCacheConfiguration cacheConfig) {
         super(cacheConfig);
     }
 
@@ -109,32 +101,28 @@ public final class AWSSecretsManagerPostgreSQLDriver extends AWSSecretsManagerDr
 
     @Override
     public boolean isExceptionDueToAuthenticationError(Exception e) {
-        if (e instanceof SQLException) {
-            SQLException sqle = (SQLException) e;
-            String sqlState = sqle.getSQLState();
-            return sqlState.equals(ACCESS_DENIED_FOR_USER_USING_PASSWORD_TO_DATABASE) || sqlState.equals(ACCESS_DENIED_FOR_INVALID_AUTHORIZATION_SPECIFICATION);
-        }
-        return false;
+        return SQLExceptionUtils.unwrapAndCheckForCode(e, ACCESS_DENIED_FOR_USER_USING_PASSWORD_TO_DATABASE);
     }
 
     @Override
     public String constructUrlFromEndpointPortDatabase(String endpoint, String port, String dbname) {
-        String url = "jdbc:postgresql://" + endpoint;
+        String url = "jdbc:db2://" + endpoint;
         if (!StringUtils.isNullOrEmpty(port)) {
             url += ":" + port;
         }
-
-        url += "/";
-
         if (!StringUtils.isNullOrEmpty(dbname)) {
-            url += dbname;
+            url += "/" + dbname;
         }
         return url;
     }
 
     @Override
     public String getDefaultDriverClass() {
-        return "org.postgresql.Driver";
+        try {
+            Class.forName("com.ibm.db2.jcc.DB2Driver", false, this.getClass().getClassLoader());
+            return "com.ibm.db2.jcc.DB2Driver";
+        } catch (ClassNotFoundException e) {
+            return "com.ibm.db2.jcc.DB2Driver";
+        }
     }
 }
-
